@@ -63,11 +63,15 @@ public class HttpTriggerJava {
 
         // Get data from the DataProvider
         ResponseData responseData = DataProvider.getData(id);
-
+        // Data not found in DataProvider.getData, try getDataFromCosmosDB
+        if (responseData == null) {
+            responseData = getDataFromCosmos(id);
+        }
         return request.createResponseBuilder(HttpStatus.OK)
                 .header("Content-Type", "application/json")
                 .body(responseData)
                 .build();
+
 
 //        return request.createResponseBuilder(HttpStatus.OK)
 //                .header("Content-Type", "application/json")
