@@ -1,6 +1,14 @@
 package org.example.functions;
 
 import java.util.*;
+
+import com.azure.cosmos.*;
+import com.azure.cosmos.CosmosClient;
+import com.azure.cosmos.CosmosClientBuilder;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
+import com.azure.cosmos.models.PartitionKey;
+import com.azure.cosmos.models.SqlParameter;
+import com.azure.cosmos.util.CosmosPagedIterable;
 import com.microsoft.azure.functions.annotation.*;
 import com.microsoft.azure.functions.*;
 import org.example.functions.data.DataProvider;
@@ -10,11 +18,19 @@ import org.example.functions.model.ResponseData;
  * Azure Functions with HTTP Trigger.
  */
 public class HttpTriggerJava {
-    /**
-     * This function listens at endpoint "/api/HttpTriggerJava". Two ways to invoke it using "curl" command in bash:
-     * 1. curl -d "HTTP Body" {your host}/api/HttpTriggerJava
-     * 2. curl {your host}/api/HttpTriggerJava?name=HTTP%20Query
-     */
+    private static CosmosClient cosmosClient;
+    static {
+        String connectionString = "AccountEndpoint=https://empcertdocumentdb.documents.azure.com:443/;AccountKey=LMprINGAXbqVVxxnKvRqiltZLHgPn5PFl3bV1iJZJLI93OFabipimBdG2YP9SFYykmlQSE0hA8wfACDbTco85g=="; // Replace with your Cosmos DB connection string
+        cosmosClient = new CosmosClientBuilder()
+                .endpoint("https://empcertdocumentdb.documents.azure.com:443/") // Replace with your Cosmos DB endpoint
+                .key(connectionString)
+                .buildClient();
+    }
+        /**
+         * This function listens at endpoint "/api/HttpTriggerJava". Two ways to invoke it using "curl" command in bash:
+         * 1. curl -d "HTTP Body" {your host}/api/HttpTriggerJava
+         * 2. curl {your host}/api/HttpTriggerJava?name=HTTP%20Query
+         */
     @FunctionName("HttpTriggerJava")
     public HttpResponseMessage run(
             @HttpTrigger(name = "req", methods = {HttpMethod.GET, HttpMethod.POST}, authLevel = AuthorizationLevel.ANONYMOUS) HttpRequestMessage<Optional<String>> request,
@@ -72,4 +88,25 @@ public class HttpTriggerJava {
 //        }
 //        return data;
 //    }
+    public ResponseData getDataFromCosmos(String id) {
+        String databaseName = "empcertdetails"; // Replace with your Cosmos DB database name
+        String containerName = "empcertcontainer"; // Replace with your Cosmos DB container name
+
+        CosmosDatabase database = cosmosClient.getDatabase(databaseName);
+        CosmosContainer container = database.getContainer(containerName);
+
+        String query = "SELECT * FROM c WHERE c.id = @id";
+
+        CosmosQueryRequestOptions options = new CosmosQueryRequestOptions();
+        options.setPartitionKey(new PartitionKey(id));
+
+        CosmosPagedIterable<ResponseData> response = container.queryItems(query, options, ResponseData.class);
+        Iterator<ResponseData> iterator = response.iterator();
+
+        if (iterator.hasNext()) {
+            return iterator.next();
+        } else {
+            return null; // Document with the specified ID not found
+        }
+    }
 }
